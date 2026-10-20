@@ -1,7 +1,10 @@
 {
+  "id": "vt3-balanco-execucao",
   "name": "VT 3 – Balanço da Execução",
   "short_name": "VT 3",
-  "start_url": ".",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0d6efd",
