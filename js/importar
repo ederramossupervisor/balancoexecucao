@@ -4,17 +4,12 @@
   const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/';
   const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-  // coluna do banco → reconhece o rótulo/cabeçalho no PDF
-  const CAMPOS = [
-    ['acao_mapa', /^acao(es)?\b/], ['desafio', /^desafio/], ['problema', /^problema/],
-    ['produto_esperado', /^produto/], ['resultado_esperado', /^resultado/],
-    ['prioridade', /^prioridade/], ['categoria', /^categoria/], ['indicador', /^indicador/]
-  ];
+  // colunas do plano que viram campos da ação (a parte da visita fica em branco)
+  const CAMPOS = ['acao_mapa', 'desafio', 'problema', 'produto_esperado', 'resultado_esperado', 'prioridade', 'categoria'];
   const ROT = {
     acao_mapa: 'Ação', desafio: 'Desafio', problema: 'Problema', produto_esperado: 'Produto esperado',
-    resultado_esperado: 'Resultado esperado', prioridade: 'Prioridade', categoria: 'Categoria', indicador: 'Indicador'
+    resultado_esperado: 'Resultado esperado', prioridade: 'Prioridade', categoria: 'Categoria'
   };
-  const colDe = t => { const n = norm(t), c = CAMPOS.find(([, r]) => r.test(n)); return c && c[0]; };
 
   let carregando;
   const carregar = () => carregando ||= new Promise((ok, no) => {
@@ -51,7 +46,7 @@
   };
   function limpar(a) {
     const o = {};
-    for (const [c] of CAMPOS) {
+    for (const c of CAMPOS) {
       const v = String(a[c] ?? '').replace(/\s+/g, ' ').trim();
       if (v) o[c] = v;
     }
@@ -60,59 +55,60 @@
     return o;
   }
 
-  // Modo 1: tabela com cabeçalho (Desafio | Problema | Ação | ...). Colunas pela posição x do cabeçalho.
-  function tabela(paginas) {
-    const rows = [];
-    for (const linhas of paginas) {
-      const hi = linhas.findIndex(l => new Set(l.it.map(i => colDe(i.s)).filter(Boolean)).size >= 3);
-      if (hi < 0) continue;
-      const cols = [];
-      linhas[hi].it.forEach(i => {
-        const c = colDe(i.s);
-        if (c && !cols.some(k => k.c === c)) cols.push({ c, x: i.x, cx: i.x + i.w / 2 });
-      });
-      cols.sort((a, b) => a.x - b.x);
-      const lim = cols.slice(1).map((k, j) => (cols[j].cx + k.cx) / 2); // fronteira entre colunas
-      // pula a 2ª linha do cabeçalho quando quebra ("Produto" / "esperado") e linhas de cabeçalho repetidas
-      const corpo = linhas.slice(hi + 1).filter((l, k) => !(k < 2 && l.it.every(i => /^(esperad[oa]s?|prioritari[oa]s?)$/.test(norm(i.s)))));
-      const gaps = corpo.slice(1).map((l, k) => corpo[k].y - l.y).filter(g => g > 0).sort((a, b) => a - b);
-      const med = gaps[Math.floor(gaps.length / 2)] || 10;
-      let atual = null;
-      corpo.forEach((l, k) => {
-        const gap = k ? corpo[k - 1].y - l.y : 999;
-        if (!atual || gap > med * 1.4) { atual = {}; rows.push(atual); } // espaço maior = nova linha da tabela
-        l.it.forEach(i => {
-          if (/^\d+[.)]?$/.test(i.s) && i.x < cols[0].x - 2) return; // coluna de numeração
-          let idx = 0;
-          while (idx < lim.length && i.x + 4 >= lim[idx]) idx++;
-          (atual[cols[idx].c] ||= []).push(i.s);
-        });
-      });
-    }
-    return rows.map(r => limpar(Object.fromEntries(Object.entries(r).map(([c, v]) => [c, v.join(' ')])))).filter(o => Object.keys(o).length >= 2);
-  }
+  // PDF do "Circuito de Gestão": cada rótulo em negrito fica numa linha e o texto vem logo abaixo.
+  // Estrutura: "N. Problema" (Problema, Desafio, Prioridade) → "N. Ação" (Nome da ação, Categoria, Produto/Resultado esperado) → "N. Tarefa" (ignorada).
+  const ROTULOS = {
+    'problema': 'problema', 'desafio': 'desafio', 'prioridade': 'prioridade', 'nome da acao': 'acao_mapa',
+    'produto esperado': 'produto_esperado', 'resultado esperado': 'resultado_esperado', 'categoria': 'categoria'
+  };
+  const OUTROS = new Set(['ofertas de ensino', 'descricao', 'premissa', 'publico-alvo', 'justificativa do produto', 'status do produto',
+    'justificativa do resultado', 'responsavel', 'colaboradores', 'nome', 'inicio previsto', 'termino previsto']);
+  const TITULOS = new Set(['dados do problema', 'objetivos estrategicos', 'dados do plano', 'composicao do plano', 'lista dos problemas']);
+  const RUIDO = /^(pagina \d+ de \d+|gerado em .*|\d+ (objetivos?|acoes?|tarefas?))$/; // cabeçalho, rodapé e "1 objetivos 1 ações 6 tarefas"
+  const ehRotulo = n => n in ROTULOS || OUTROS.has(n);
 
-  // Modo 2: blocos "Rótulo: texto" (a ação nova começa quando um rótulo se repete)
-  function rotulos(paginas) {
-    const acoes = []; let a = null, c = null;
+  function documento(paginas) {
+    const acoes = []; let sec = null, p = null, a = null, slots = [];
+    const fecha = () => {
+      for (const s of slots) {
+        const col = ROTULOS[s.l], v = s.t.join(' ');
+        if (!col) continue;
+        if (sec === 'problema' && p && ['problema', 'desafio', 'prioridade'].includes(col)) p[col] = v;
+        else if (sec === 'acao' && a && col === 'categoria') (a.cats ||= []).push(v);
+        else if (sec === 'acao' && a && ['acao_mapa', 'produto_esperado', 'resultado_esperado'].includes(col)) a[col] = v;
+      }
+      slots = [];
+    };
     for (const linhas of paginas) for (const l of linhas) {
-      const m = l.t.match(/^\s*([A-Za-zÀ-ÿ ]{3,22}?)\s*(?:\d+\s*)?[:\-–]\s*(.*)$/);
-      const col = m && colDe(m[1]);
-      if (col) {
-        if (!a || a[col] !== undefined) { a = {}; acoes.push(a); }
-        a[col] = m[2]; c = col;
-      } else if (a && c) a[c] += ' ' + l.t;
+      const its = l.it.filter(i => !RUIDO.test(norm(i.s)));
+      if (!its.length) continue;
+      const t = norm(its.map(i => i.s).join(' '));
+      const m = t.match(/^\d+\.\s*(problema|acao|tarefa)$/);
+      if (m) {
+        fecha(); sec = m[1];
+        if (sec === 'problema') p = {};
+        if (sec === 'acao') { a = { p }; acoes.push(a); }
+        continue;
+      }
+      if (TITULOS.has(t)) { fecha(); continue; }
+      if (!sec) continue;
+      if (its.every(i => ehRotulo(norm(i.s)))) { fecha(); slots = its.map(i => ({ l: norm(i.s), x: i.x, t: [] })); continue; } // ex.: Categoria | Premissa | Categoria | Público-alvo
+      if (ehRotulo(t)) { fecha(); slots = [{ l: t, x: i0(its), t: [] }]; continue; }
+      its.forEach(i => { let s = slots[0]; slots.forEach(k => { if (i.x + 4 >= k.x) s = k; }); s && s.t.push(i.s); });
     }
-    return acoes.map(limpar).filter(o => Object.keys(o).length >= 2);
+    fecha();
+    const catOk = c => CATEGORIAS.some(o => norm(o) === norm(c));
+    return acoes.map(a => limpar({
+      acao_mapa: a.acao_mapa, desafio: a.p?.desafio, problema: a.p?.problema, produto_esperado: a.produto_esperado,
+      resultado_esperado: a.resultado_esperado, prioridade: a.p?.prioridade,
+      categoria: (a.cats || []).find(catOk) || (a.cats || []).slice(-1)[0] // há 2 "Categoria": a do tipo (Protagonismo) e a pedagógica
+    })).filter(o => o.acao_mapa);
   }
+  const i0 = its => its[0].x;
 
-  function analisar(paginas) {
-    let modo = 'tabela', acoes = tabela(paginas);
-    if (!acoes.length) { modo = 'rótulos'; acoes = rotulos(paginas); }
-    return { modo, acoes };
-  }
+  const analisar = paginas => ({ modo: 'Plano do Circuito de Gestão', acoes: documento(paginas) });
 
-  if (typeof module !== 'undefined') { module.exports = { paginasDe, analisar, tabela, rotulos }; return; }
+  if (typeof module !== 'undefined') { module.exports = { paginasDe, analisar }; return; }
 
   function preview(vid, existentes, nome, modo, acoes, paginas) {
     const texto = paginas.map((ls, p) => `--- página ${p + 1} ---\n` + ls.map(l => l.it.map(i => `${Math.round(i.x)}:${i.s}`).join(' | ')).join('\n')).join('\n');
