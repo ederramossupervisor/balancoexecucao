@@ -181,8 +181,7 @@ async function novaView() {
       .insert({ escola: $('#n-esc').value, data_visita: $('#n-data').value }).select('id').single();
     if (error) return $('#n-msg').textContent = error.message;
     const r1 = await sb.from('vt3_escutas').insert(GRUPOS.map(grupo => ({ visita_id: v.id, grupo })));
-    const r2 = await sb.from('vt3_acoes').insert(Array.from({ length: 10 }, (_, i) => ({ visita_id: v.id, numero: i + 1 })));
-    if (r1.error || r2.error) toast('Visita criada, mas houve erro ao montar os formulários', false);
+    if (r1.error) toast('Visita criada, mas houve erro ao montar os formulários', false);
     location.hash = '#/v/' + v.id;
   };
 }
@@ -215,7 +214,7 @@ const acaoHtml = (x, i) => `<div class="accordion-item">
     ${CAMPOS_ACAO.map(([c, l, k, o]) => fld('vt3_acoes', x.id, c, l, x[c], k, o)).join('')}
   </div></div></div>`;
 
-async function visitaView(id) {
+async function visitaView(id, opts = {}) {
   view.innerHTML = '<div class="text-muted">Carregando…</div>';
   const [v, e, a] = await Promise.all([
     sb.from('vt3_visitas').select('*').eq('id', id).single(),
@@ -225,6 +224,7 @@ async function visitaView(id) {
   if (v.error) return view.innerHTML = `<a href="#/" class="small">← Visitas</a><div class="alert alert-danger mt-2">${esc(v.error.message)}</div>`;
   const vis = v.data, T = 'vt3_visitas';
   const escutas = GRUPOS.map(g => (e.data || []).find(x => x.grupo === g)).filter(Boolean);
+  const acoes = a.data || [];
   view.innerHTML = `<a href="#/" class="small">← Visitas</a>
     <h5 class="mt-2">${esc(vis.escola)} <small class="text-muted">· ${dataBR(vis.data_visita)}</small></h5>
     <ul class="nav nav-pills mb-3">
@@ -240,8 +240,29 @@ async function visitaView(id) {
         <button id="fin" class="btn btn-${vis.finalizada ? 'outline-secondary' : 'success'}">${vis.finalizada ? 'Reabrir visita' : 'Marcar como finalizada'}</button>
       </div>
       <div class="tab-pane fade" id="p2"><div class="accordion">${escutas.map(escutaHtml).join('')}</div></div>
-      <div class="tab-pane fade" id="p3"><div class="accordion">${(a.data || []).map(acaoHtml).join('')}</div></div>
+      <div class="tab-pane fade" id="p3">
+        <button id="nova-acao" class="btn btn-primary btn-sm mb-3">+ Inserir nova ação</button>
+        ${acoes.length ? `<div class="accordion">${acoes.map(acaoHtml).join('')}</div>` : '<p class="text-muted">Nenhuma ação inserida ainda.</p>'}
+      </div>
     </div>`;
+  $('#nova-acao').onclick = async ev => {
+    const btn = ev.currentTarget;
+    btn.disabled = true;
+    const numero = acoes.reduce((m, x) => Math.max(m, x.numero || 0), 0) + 1;
+    const { data: nova, error } = await sb.from('vt3_acoes').insert({ visita_id: id, numero }).select('id').single();
+    if (error) { btn.disabled = false; return toast('Erro ao inserir ação', false); }
+    visitaView(id, { aba: 'p3', abrirAcao: nova.id });
+  };
+  if (opts.aba) {
+    new bootstrap.Tab($(`[data-bs-target="#${opts.aba}"]`)).show();
+    const i = acoes.findIndex(x => x.id === opts.abrirAcao);
+    if (i >= 0) {
+      const col = $('#a' + i);
+      col.classList.add('show');
+      col.previousElementSibling.querySelector('button').classList.remove('collapsed');
+      col.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
   $('#fin').onclick = async () => {
     const { error } = await sb.from(T).update({ finalizada: !vis.finalizada }).eq('id', id);
     if (error) return toast('Erro ao salvar', false);
