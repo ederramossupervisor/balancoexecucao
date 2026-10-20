@@ -88,6 +88,7 @@ const GRUPOS = Object.keys(ROTEIRO);
 
 // Listas fixas (vindas dos Planos de Ação do Circuito de Gestão 2026)
 const SITUACOES = ['Realizada', 'Parcialmente realizada', 'Não realizada', 'Em andamento'];
+const COR_SIT = { 'Realizada': 'success', 'Parcialmente realizada': 'info', 'Em andamento': 'warning', 'Não realizada': 'danger' };
 const CATEGORIAS = ['Pedagógico', 'Gestão de pessoas', 'Vulnerabilidade e aspectos socioemocionais'];
 const PRIORIDADES = ['Crítica', 'Alta', 'Média'];
 
@@ -132,6 +133,23 @@ document.addEventListener('change', async e => {
   if (v === '') { if (d.c === 'data_visita') return; v = null; }
   const { error } = await sb.from(d.t).update({ [d.c]: v }).eq('id', d.id);
   toast(error ? 'Erro ao salvar' : 'Salvo', !error);
+});
+
+// Excluir ação e renumerar as restantes (1, 2, 3...)
+document.addEventListener('click', async e => {
+  const id = e.target.dataset.delAcao;
+  if (!id) return;
+  if (!confirm('Excluir esta ação? Não é possível desfazer.')) return;
+  e.target.disabled = true;
+  const vid = location.hash.slice(3);
+  const { data: del, error } = await sb.from('vt3_acoes').delete().eq('id', id).select('id');
+  if (error || !del || !del.length) { e.target.disabled = false; return toast('Não foi possível excluir', false); }
+  const { data: resto } = await sb.from('vt3_acoes').select('id,numero').eq('visita_id', vid).order('numero');
+  for (let i = 0; i < (resto || []).length; i++) {
+    if (resto[i].numero !== i + 1) await sb.from('vt3_acoes').update({ numero: i + 1 }).eq('id', resto[i].id);
+  }
+  toast('Ação excluída');
+  visitaView(vid, { aba: 'p3' });
 });
 
 // ---------- Login ----------
@@ -209,9 +227,10 @@ const escutaHtml = (x, i) => `<div class="accordion-item">
   </div></div></div>`;
 
 const acaoHtml = (x, i) => `<div class="accordion-item">
-  <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#a${i}">Ação ${x.numero}${x.acao_mapa ? ' · ' + esc(x.acao_mapa.slice(0, 40)) : ''}</button></h2>
+  <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#a${i}"><span class="me-2">Ação ${x.numero}${x.acao_mapa ? ' · ' + esc(x.acao_mapa.slice(0, 40)) : ''}</span>${x.situacao_execucao ? `<span class="badge text-bg-${COR_SIT[x.situacao_execucao] || 'secondary'}">${esc(x.situacao_execucao)}</span>` : ''}</button></h2>
   <div id="a${i}" class="accordion-collapse collapse"><div class="accordion-body">
     ${CAMPOS_ACAO.map(([c, l, k, o]) => fld('vt3_acoes', x.id, c, l, x[c], k, o)).join('')}
+    <button class="btn btn-outline-danger btn-sm" data-del-acao="${x.id}">Excluir ação</button>
   </div></div></div>`;
 
 async function visitaView(id, opts = {}) {
@@ -230,7 +249,7 @@ async function visitaView(id, opts = {}) {
     <ul class="nav nav-pills mb-3">
       <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#p1">Identificação</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#p2">Escuta</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#p3">Ações</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#p3">Ações${acoes.length ? ` (${acoes.length})` : ''}</button></li>
     </ul>
     <div class="tab-content">
       <div class="tab-pane fade show active" id="p1">
