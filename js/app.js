@@ -275,7 +275,18 @@ async function visitaView(id, opts = {}) {
     if (error) { btn.disabled = false; return toast('Erro ao inserir ação', false); }
     visitaView(id, { aba: 'p3', abrirAcao: nova.id });
   };
-  $('#imp-plano').onclick = () => importarPlano(id, acoes);
+  $('#imp-plano').onclick = async () => {
+    if (!window.importarPlano) { // carrega o módulo na hora se o index.html ainda não o incluía
+      await new Promise(ok => {
+        const sc = document.createElement('script');
+        sc.src = 'js/importar.js';
+        sc.onload = sc.onerror = ok;
+        document.head.appendChild(sc);
+      });
+    }
+    if (!window.importarPlano) return toast('Não encontrei js/importar.js no site', false);
+    importarPlano(id, acoes);
+  };
   if (opts.aba) {
     new bootstrap.Tab($(`[data-bs-target="#${opts.aba}"]`)).show();
     const i = acoes.findIndex(x => x.id === opts.abrirAcao);
