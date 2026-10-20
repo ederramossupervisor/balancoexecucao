@@ -7,8 +7,84 @@ const view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const dataBR = d => new Date(d + 'T12:00').toLocaleDateString('pt-BR');
 
-const GRUPOS = ['Equipe Gestora', 'Pedagogas', 'Coordenadores', 'PCAs', 'PCI',
-  'Professores da Base', 'Professores do AEE', 'Líderes de turma'];
+// Roteiro da escuta (temas e perguntas norteadoras do instrumento)
+const ROTEIRO = {
+  'Equipe Gestora': {
+    t: 'Avanços na execução do Plano de Ação; incidência das ações nos desafios prioritários; monitoramento dos indicadores e resultados da escola; desafios que permaneceram ao longo do ano; prioridades para o próximo planejamento.',
+    q: [
+      'Quais foram os principais avanços da escola na execução do Plano de Ação ao longo do ano?',
+      'Quais ações apresentaram maior incidência nos desafios identificados inicialmente? Que evidências sustentam essa avaliação?',
+      'Quais desafios permaneceram, apesar das estratégias desenvolvidas e das correções de rota realizadas?',
+      'Quais foram as principais dificuldades enfrentadas para garantir a frequência dos estudantes?',
+      'Que ações foram realizadas diante das faltas recorrentes e quais resultados foram observados?',
+      'O que a escola considera necessário manter, modificar ou priorizar no Plano de Ação para 2027?'
+    ]
+  },
+  'Pedagogas': {
+    t: 'Acompanhamento pedagógico e intervenções nas aprendizagens; monitoramento dos resultados dos estudantes; estratégias de recomposição das aprendizagens; articulação entre planejamento, avaliação e intervenções; práticas pedagógicas a manter ou aprimorar.',
+    q: [
+      'Quais estratégias de acompanhamento pedagógico contribuíram mais para a aprendizagem dos estudantes?',
+      'Quais dificuldades de aprendizagem permaneceram mais evidentes ao longo dos três trimestres?',
+      'Como os resultados das avaliações e os registros de acompanhamento foram utilizados para orientar intervenções pedagógicas?',
+      'Que estratégias ou ações precisam ser fortalecidas ou reformuladas no próximo ano?'
+    ]
+  },
+  'Coordenadores': {
+    t: 'Indisciplina e convivência escolar; acompanhamento e intervenção junto aos estudantes; comunicação e parceria com as famílias; frequência escolar e prevenção da infrequência; estratégias de prevenção e resolução de conflitos.',
+    q: [
+      'Quais foram as situações de indisciplina mais recorrentes durante o ano? Que estratégias foram adotadas e quais apresentaram melhores resultados?',
+      'Como foi realizado o acompanhamento dos estudantes que apresentaram dificuldades de comportamento, participação ou adaptação à rotina escolar? Houve mudanças ao longo do ano?',
+      'Como ocorreu o contato com as famílias diante de situações de indisciplina ou dificuldades de frequência? Quais estratégias favoreceram uma maior participação e parceria dos responsáveis?',
+      'As ações desenvolvidas contribuíram para prevenir a reincidência de situações de indisciplina e faltas? Que evidências permitem avaliar essa contribuição?',
+      'Quais estratégias de acompanhamento, contato com as famílias e intervenção junto aos estudantes devem ser mantidas, aprimoradas ou implementadas no próximo Plano de Ação?'
+    ]
+  },
+  'PCAs': {
+    t: 'Estratégias pedagógicas desenvolvidas nas áreas de conhecimento; monitoramento dos descritores e resultados de aprendizagem; intervenções diante das dificuldades de aprendizagem; articulação e compartilhamento de práticas entre professores; estratégias de ensino a manter ou aprimorar.',
+    q: [
+      'Quais estratégias desenvolvidas nas áreas de conhecimento contribuíram para melhorar a aprendizagem dos estudantes?',
+      'Como o acompanhamento dos descritores, das avaliações e dos resultados dos estudantes subsidiou o planejamento dos professores?',
+      'Quais dificuldades de aprendizagem permaneceram mais evidentes nas respectivas áreas de conhecimento?',
+      'Que práticas pedagógicas apresentaram resultados positivos e devem ser mantidas ou ampliadas no próximo Plano de Ação?'
+    ]
+  },
+  'PCI': {
+    t: 'Metodologias ativas e práticas inovadoras de ensino; uso pedagógico de recursos tecnológicos e ferramentas digitais; formação e acompanhamento dos professores para implementação de metodologias inovadoras; monitoramento das rotinas e práticas de inovação na escola; contribuições das estratégias de inovação para o engajamento e a aprendizagem dos estudantes; desafios e prioridades para o aprimoramento das práticas de inovação no próximo ano.',
+    q: [
+      'Quais ações contribuíram para ampliar o envolvimento dos estudantes nas atividades escolares?',
+      'Como as atividades desenvolvidas favoreceram a articulação entre os componentes curriculares e os desafios do Plano de Ação?',
+      'Quais projetos ou estratégias apresentaram maior participação dos estudantes e evidências de aprendizagem?',
+      'Que ações ou projetos precisam ser mantidos, reformulados ou planejados para o próximo ano?'
+    ]
+  },
+  'Professores da Base': {
+    t: 'Estratégias de ensino e aprendizagem; dificuldades de aprendizagem e intervenções realizadas; participação, engajamento e frequência dos estudantes; resultados das ações pedagógicas desenvolvidas; práticas que funcionaram e desafios para o próximo ano.',
+    q: [
+      'O que mais contribuiu para a aprendizagem dos estudantes durante o ano? Cite uma estratégia ou experiência concreta.',
+      'Quais dificuldades os estudantes apresentaram com maior frequência e como foram trabalhadas?',
+      'Que mudanças você percebeu na participação, no interesse, na frequência ou no desempenho dos estudantes?',
+      'Que estratégia pedagógica deveria permanecer no próximo ano?'
+    ]
+  },
+  'Professores do AEE': {
+    t: 'Aprendizagem, participação e autonomia dos estudantes público-alvo da Educação Especial; identificação e enfrentamento das barreiras à aprendizagem; articulação entre AEE, professores da Base e equipe pedagógica; recursos e estratégias de acessibilidade e inclusão; necessidades de apoio e aprimoramento para o próximo ano.',
+    q: [
+      'Quais ações contribuíram para ampliar a participação, a aprendizagem e a autonomia dos estudantes público-alvo da Educação Especial?',
+      'Quais barreiras à aprendizagem e à participação foram identificadas ao longo do ano? Que estratégias foram adotadas para enfrentá-las?',
+      'Como ocorreu a articulação entre o AEE, os professores da Base e a equipe pedagógica? O que favoreceu ou dificultou esse trabalho?',
+      'Que recursos, estratégias ou formas de acompanhamento precisam ser mantidos ou aprimorados no próximo ano?'
+    ]
+  },
+  'Líderes de turma': {
+    t: 'Aprendizagem e estratégias que mais ajudaram os estudantes; participação e envolvimento nas atividades escolares; convivência, respeito e relacionamento entre os estudantes; frequência escolar e dificuldades para participar das aulas; sugestões dos estudantes para melhorar a escola no próximo ano.',
+    q: [
+      'Quais atividades ou estratégias fizeram os alunos se sentirem mais motivados a participar das aulas?',
+      'O que dificultou a aprendizagem ou a participação dos estudantes durante o ano?',
+      'O que a escola deveria continuar fazendo? O que precisa melhorar ou ser prioridade no próximo ano?'
+    ]
+  }
+};
+const GRUPOS = Object.keys(ROTEIRO);
 const SITUACOES = ['Realizada', 'Parcialmente realizada', 'Não realizada', 'Em andamento'];
 const CAMPOS_ACAO = [
   ['acao_mapa', 'Ação (mapa)', 'area'], ['desafio', 'Desafio', 'area'],
@@ -101,9 +177,21 @@ async function novaView() {
 }
 
 // ---------- Visita (3 abas) ----------
+const roteiroHtml = g => {
+  const r = ROTEIRO[g];
+  if (!r) return '';
+  return `<details class="mb-3" open><summary class="fw-semibold text-primary">Roteiro da escuta</summary>
+    <div class="small bg-light border rounded p-2 mt-2">
+      <div class="mb-2"><b>Temas:</b> ${esc(r.t)}</div>
+      <b>Perguntas norteadoras:</b>
+      <ol class="mb-0 ps-3">${r.q.map(q => `<li class="mb-1">${esc(q)}</li>`).join('')}</ol>
+    </div></details>`;
+};
+
 const escutaHtml = (x, i) => `<div class="accordion-item">
   <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#e${i}">${esc(x.grupo)}${x.realizada ? ' ✓' : ''}</button></h2>
   <div id="e${i}" class="accordion-collapse collapse"><div class="accordion-body">
+    ${roteiroHtml(x.grupo)}
     <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="r${i}" ${x.realizada ? 'checked' : ''} data-t="vt3_escutas" data-id="${x.id}" data-c="realizada"><label class="form-check-label" for="r${i}">Escuta realizada</label></div>
     ${fld('vt3_escutas', x.id, 'sintese', 'Síntese das percepções', x.sintese, 'area')}
     ${fld('vt3_escutas', x.id, 'evidencias', 'Exemplos ou evidências', x.evidencias, 'area')}
