@@ -260,7 +260,10 @@ async function visitaView(id, opts = {}) {
       </div>
       <div class="tab-pane fade" id="p2"><div class="accordion">${escutas.map(escutaHtml).join('')}</div></div>
       <div class="tab-pane fade" id="p3">
-        <button id="nova-acao" class="btn btn-primary btn-sm mb-3">+ Inserir nova ação</button>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button id="nova-acao" class="btn btn-primary btn-sm">+ Inserir nova ação</button>
+          <button id="imp-plano" class="btn btn-outline-primary btn-sm">Importar do Plano de Ação</button>
+        </div>
         ${acoes.length ? `<div class="accordion">${acoes.map(acaoHtml).join('')}</div>` : '<p class="text-muted">Nenhuma ação inserida ainda.</p>'}
       </div>
     </div>`;
@@ -272,6 +275,7 @@ async function visitaView(id, opts = {}) {
     if (error) { btn.disabled = false; return toast('Erro ao inserir ação', false); }
     visitaView(id, { aba: 'p3', abrirAcao: nova.id });
   };
+  $('#imp-plano').onclick = () => importarPlano(id, acoes);
   if (opts.aba) {
     new bootstrap.Tab($(`[data-bs-target="#${opts.aba}"]`)).show();
     const i = acoes.findIndex(x => x.id === opts.abrirAcao);
