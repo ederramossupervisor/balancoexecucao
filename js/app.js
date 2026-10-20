@@ -85,12 +85,20 @@ const ROTEIRO = {
   }
 };
 const GRUPOS = Object.keys(ROTEIRO);
+
+// Listas fixas (vindas dos Planos de Ação do Circuito de Gestão 2026)
 const SITUACOES = ['Realizada', 'Parcialmente realizada', 'Não realizada', 'Em andamento'];
+const CATEGORIAS = ['Pedagógico', 'Gestão de pessoas', 'Vulnerabilidade e aspectos socioemocionais'];
+const PRIORIDADES = ['Crítica', 'Alta', 'Média'];
+
+// [coluna, rótulo, tipo, opções (só para tipo 'sel')]
 const CAMPOS_ACAO = [
   ['acao_mapa', 'Ação (mapa)', 'area'], ['desafio', 'Desafio', 'area'],
   ['problema', 'Problema', 'area'], ['produto_esperado', 'Produto esperado', 'area'],
-  ['resultado_esperado', 'Resultado esperado', 'area'], ['prioridade', 'Prioridade', 'text'],
-  ['categoria', 'Categoria', 'text'], ['situacao_execucao', 'Situação da execução', 'sel'],
+  ['resultado_esperado', 'Resultado esperado', 'area'],
+  ['prioridade', 'Prioridade', 'sel', PRIORIDADES],
+  ['categoria', 'Categoria', 'sel', CATEGORIAS],
+  ['situacao_execucao', 'Situação da execução', 'sel', SITUACOES],
   ['principal_avanco', 'Principal avanço', 'area'], ['ponto_atencao', 'Ponto de atenção', 'area'],
   ['evidencias', 'Evidências', 'area'], ['indicador', 'Indicador', 'area'],
   ['prioridades_2027', 'Prioridades para 2027', 'area'], ['encaminhamentos', 'Encaminhamentos', 'area']
@@ -109,8 +117,11 @@ const fld = (t, id, c, label, val, kind = 'text', opts = []) => {
   const a = `data-t="${t}" data-id="${id}" data-c="${c}"`;
   let el;
   if (kind === 'area') el = `<textarea class="form-control" rows="3" ${a}>${esc(val)}</textarea>`;
-  else if (kind === 'sel') el = `<select class="form-select" ${a}><option value=""></option>${opts.map(o => `<option ${o === val ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
-  else el = `<input class="form-control" type="${kind}" value="${esc(val)}" ${a}>`;
+  else if (kind === 'sel') {
+    // valor já salvo que não está na lista continua visível
+    const lista = val && !opts.includes(val) ? [...opts, val] : opts;
+    el = `<select class="form-select" ${a}><option value=""></option>${lista.map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  } else el = `<input class="form-control" type="${kind}" value="${esc(val)}" ${a}>`;
   return `<div class="mb-3"><label class="form-label fw-semibold">${label}</label>${el}</div>`;
 };
 
@@ -201,7 +212,7 @@ const escutaHtml = (x, i) => `<div class="accordion-item">
 const acaoHtml = (x, i) => `<div class="accordion-item">
   <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#a${i}">Ação ${x.numero}${x.acao_mapa ? ' · ' + esc(x.acao_mapa.slice(0, 40)) : ''}</button></h2>
   <div id="a${i}" class="accordion-collapse collapse"><div class="accordion-body">
-    ${CAMPOS_ACAO.map(([c, l, k]) => fld('vt3_acoes', x.id, c, l, x[c], k, SITUACOES)).join('')}
+    ${CAMPOS_ACAO.map(([c, l, k, o]) => fld('vt3_acoes', x.id, c, l, x[c], k, o)).join('')}
   </div></div></div>`;
 
 async function visitaView(id) {
