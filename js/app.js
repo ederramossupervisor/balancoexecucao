@@ -152,6 +152,25 @@ document.addEventListener('click', async e => {
   visitaView(vid, { aba: 'p3' });
 });
 
+// Excluir visita (finalizada ou não), junto com a escuta e as ações dela
+document.addEventListener('click', async e => {
+  const d = e.target.dataset, id = d.delVisita;
+  if (!id) return;
+  const aviso = d.fin === '1' ? 'ATENÇÃO: esta visita está FINALIZADA.\n\n' : '';
+  if (!confirm(`${aviso}Excluir a visita de ${d.escola} (${d.data})?\n\nSerão apagadas também a escuta e ${d.n} ação(ões). Não é possível desfazer.`)) return;
+  e.target.disabled = true;
+  const apagar = () => sb.from('vt3_visitas').delete().eq('id', id).select('id');
+  let { data: del, error } = await apagar();
+  if (error && error.code === '23503') { // o banco não apaga em cascata: remove os registros ligados e tenta de novo
+    await sb.from('vt3_acoes').delete().eq('visita_id', id);
+    await sb.from('vt3_escutas').delete().eq('visita_id', id);
+    ({ data: del, error } = await apagar());
+  }
+  if (error || !del || !del.length) { e.target.disabled = false; return toast('Não foi possível excluir', false); }
+  toast('Visita excluída');
+  location.hash = '#/';
+});
+
 // ---------- Login ----------
 function loginView() {
   view.innerHTML = `<div class="mx-auto" style="max-width:380px">
@@ -257,6 +276,8 @@ async function visitaView(id, opts = {}) {
         ${fld(T, id, 'participantes_escola', 'Participantes da escola', vis.participantes_escola, 'area')}
         ${fld(T, id, 'supervisora_nome', 'Supervisora/SRE', vis.supervisora_nome)}
         <button id="fin" class="btn btn-${vis.finalizada ? 'outline-secondary' : 'success'}">${vis.finalizada ? 'Reabrir visita' : 'Marcar como finalizada'}</button>
+        <hr class="my-4">
+        <button class="btn btn-outline-danger btn-sm" data-del-visita="${id}" data-escola="${esc(vis.escola)}" data-data="${dataBR(vis.data_visita)}" data-n="${acoes.length}" data-fin="${vis.finalizada ? 1 : 0}">Excluir visita</button>
       </div>
       <div class="tab-pane fade" id="p2"><div class="accordion">${escutas.map(escutaHtml).join('')}</div></div>
       <div class="tab-pane fade" id="p3">
@@ -285,7 +306,7 @@ async function visitaView(id, opts = {}) {
       });
     }
     if (!window.importarPlano) return toast('Não encontrei js/importar.js no site', false);
-    importarPlano(id, acoes);
+    importarPlano(id, acoes, vis.escola);
   };
   if (opts.aba) {
     new bootstrap.Tab($(`[data-bs-target="#${opts.aba}"]`)).show();
