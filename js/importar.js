@@ -106,22 +106,42 @@
   }
   const i0 = its => its[0].x;
 
-  const analisar = paginas => ({ modo: 'Plano do Circuito de Gestão', acoes: documento(paginas) });
+  // nome da escola no título do PDF ("Plano de ação de EEEFM PEDRA AZUL")
+  const escolaDe = paginas => {
+    for (const l of paginas[0] || []) { const m = l.t.match(/^plano de a[cç][aã]o de (.+)$/i); if (m) return m[1].trim(); }
+    return '';
+  };
+  const analisar = paginas => ({ modo: 'Plano do Circuito de Gestão', acoes: documento(paginas), escola: escolaDe(paginas) });
 
-  if (typeof module !== 'undefined') { module.exports = { paginasDe, analisar }; return; }
+  // compara escolas ignorando prefixos (EEEFM, EMEF…) e acentos
+  const GENERICOS = new Set(['eeefm', 'eeef', 'eefm', 'eef', 'emef', 'emeief', 'emeiefm', 'ceefmti', 'ceefm', 'escola', 'estadual', 'municipal', 'de', 'da', 'do', 'das', 'dos', 'e']);
+  const tokens = s => norm(s).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t && !GENERICOS.has(t));
+  const mesmaEscola = (a, b) => {
+    const x = tokens(a), y = tokens(b);
+    if (!x.length || !y.length) return true; // sem como comparar, não alerta
+    const [p, q] = x.length <= y.length ? [x, y] : [y, x];
+    return p.every(t => q.includes(t));
+  };
+  const chave = s => norm(s).replace(/[^a-z0-9]+/g, ' ').trim();
 
-  function preview(vid, existentes, nome, modo, acoes, paginas) {
+  if (typeof module !== 'undefined') { module.exports = { paginasDe, analisar, mesmaEscola, preview }; return; }
+
+  function preview(vid, existentes, nome, modo, acoes, paginas, escolaPdf, escolaVisita) {
     const texto = paginas.map((ls, p) => `--- página ${p + 1} ---\n` + ls.map(l => l.it.map(i => `${Math.round(i.x)}:${i.s}`).join(' | ')).join('\n')).join('\n');
+    const outra = escolaPdf && escolaVisita && !mesmaEscola(escolaPdf, escolaVisita);
+    const jaTem = new Set(existentes.map(x => chave(x.acao_mapa)).filter(Boolean));
+    const dup = acoes.map(a => jaTem.has(chave(a.acao_mapa)));
     const cards = acoes.map((a, k) => `<div class="card mb-2"><div class="card-body p-2 small">
-      <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="imp${k}" checked>
-      <label class="form-check-label fw-semibold" for="imp${k}">Ação ${k + 1}</label></div>
+      <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="imp${k}" ${dup[k] ? '' : 'checked'}>
+      <label class="form-check-label fw-semibold" for="imp${k}">Ação ${k + 1}</label>${dup[k] ? '<span class="badge text-bg-warning ms-2">já existe nesta visita</span>' : ''}</div>
       ${Object.keys(ROT).filter(c => a[c] || c === 'acao_mapa').map(c => `<div><span class="text-muted">${ROT[c]}:</span> ${a[c] ? esc(a[c]) : '<i class="text-danger">não encontrado</i>'}</div>`).join('')}
     </div></div>`).join('');
     $('#imp-modal')?.remove();
     document.body.insertAdjacentHTML('beforeend', `<div class="modal fade" id="imp-modal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
       <div class="modal-header"><h6 class="modal-title">Importar do Plano de Ação</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
-        <div class="small text-muted mb-2">${esc(nome)} · leitura em modo <b>${modo}</b> · ${acoes.length} ação(ões) encontrada(s)</div>
+        <div class="small text-muted mb-2">${esc(nome)} · leitura em modo <b>${modo}</b> · ${acoes.length} ação(ões) encontrada(s)${dup.some(Boolean) ? ` · ${dup.filter(Boolean).length} já existe(m) e ficou(aram) desmarcada(s)` : ''}</div>
+        ${outra ? `<div class="alert alert-danger small">Atenção: este PDF é do plano de <b>${esc(escolaPdf)}</b>, mas esta visita é de <b>${esc(escolaVisita)}</b>.</div>` : ''}
         ${acoes.length ? cards : '<div class="alert alert-warning">Não consegui identificar ações neste PDF. Copie o texto lido abaixo para ajustarmos a leitura.</div>'}
         <details class="mt-3"><summary class="small">Texto lido do PDF (posição x : texto)</summary>
           <button id="imp-copiar" class="btn btn-outline-secondary btn-sm my-2">Copiar texto lido</button>
@@ -136,6 +156,7 @@
     $('#imp-ok').onclick = async () => {
       const sel = acoes.filter((_, k) => $('#imp' + k).checked);
       if (!sel.length) return toast('Nenhuma ação selecionada', false);
+      if (outra && !confirm('O PDF é de outra escola. Importar mesmo assim?')) return;
       const base = existentes.reduce((mx, x) => Math.max(mx, x.numero || 0), 0);
       $('#imp-ok').disabled = true;
       const { error } = await sb.from('vt3_acoes').insert(sel.map((a, k) => ({ visita_id: vid, numero: base + k + 1, ...a })));
@@ -147,7 +168,7 @@
     m.show();
   }
 
-  window.importarPlano = (vid, existentes) => {
+  window.importarPlano = (vid, existentes, escolaVisita) => {
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = 'application/pdf';
     inp.onchange = async () => {
@@ -158,8 +179,8 @@
         await carregar();
         const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
         const paginas = await paginasDe(pdf);
-        const { modo, acoes } = analisar(paginas);
-        preview(vid, existentes, f.name, modo, acoes, paginas);
+        const { modo, acoes, escola } = analisar(paginas);
+        preview(vid, existentes, f.name, modo, acoes, paginas, escola, escolaVisita);
       } catch (e) { toast('Não foi possível ler o PDF', false); }
     };
     inp.click();
