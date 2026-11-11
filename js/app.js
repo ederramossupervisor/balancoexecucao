@@ -252,9 +252,9 @@ async function visitaView(id, opts = {}) {
     </ul>
     <div class="tab-content">
       <div class="tab-pane fade show active" id="p1">
-        ${fld(T, id, 'data_visita', 'Data da visita', vis.data_visita, 'date')}
-        ${fld(T, id, 'participantes_escola', 'Participantes da escola', vis.participantes_escola, 'area')}
-        ${fld(T, id, 'supervisora_nome', 'Supervisora/SRE', vis.supervisora_nome)}
+        ${fld(T, id, 'data_visita', 'Data', vis.data_visita, 'date')}
+        ${fld(T, id, 'participantes_escola', 'Participantes', vis.participantes_escola, 'area')}
+        ${fld(T, id, 'supervisora_nome', 'Responsável pela inserção dos dados', vis.supervisora_nome)}
         <button id="fin" class="btn btn-${vis.finalizada ? 'outline-secondary' : 'success'}">${vis.finalizada ? 'Reabrir visita' : 'Marcar como finalizada'}</button>
         <hr class="my-4">
         <button class="btn btn-outline-danger btn-sm" data-del-visita="${id}" data-escola="${esc(vis.escola)}" data-data="${dataBR(vis.data_visita)}" data-n="${acoes.length}" data-fin="${vis.finalizada ? 1 : 0}">Excluir visita</button>
