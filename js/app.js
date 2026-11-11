@@ -171,39 +171,34 @@ document.addEventListener('click', async e => {
   location.hash = '#/';
 });
 
-// ---------- Lista de visitas ----------
+// ---------- Início: escolher a escola ----------
+// (o nome listaView é mantido porque o painel.js desvia #/painel a partir dele)
 async function listaView() {
   view.innerHTML = '<div class="text-muted">Carregando…</div>';
-  const { data, error } = await sb.from('vt3_visitas')
-    .select('id,escola,data_visita,finalizada').order('data_visita', { ascending: false });
-  if (error) return view.innerHTML = `<div class="alert alert-danger">${esc(error.message)}</div>`;
-  view.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="m-0">Visitas</h5><a href="#/nova" class="btn btn-primary btn-sm">+ Nova visita</a></div>` +
-    (data.length ? data.map(v => `<a href="#/v/${v.id}" class="card mb-2 text-decoration-none">
-      <div class="card-body d-flex justify-content-between">
-        <div><div class="fw-semibold">${esc(v.escola)}</div><small class="text-muted">${dataBR(v.data_visita)}</small></div>
-        <span class="badge text-bg-${v.finalizada ? 'success' : 'warning'} align-self-center">${v.finalizada ? 'Finalizada' : 'Em andamento'}</span>
-      </div></a>`).join('') : '<p class="text-muted">Nenhuma visita ainda.</p>');
-}
-
-// ---------- Nova visita ----------
-async function novaView() {
   const { data: escolas, error } = await sb.from('escolas').select('nome').order('nome');
   if (error) return view.innerHTML = `<div class="alert alert-danger">${esc(error.message)}</div>`;
-  if (!escolas.length) return view.innerHTML = '<a href="#/" class="small">← Visitas</a><div class="alert alert-warning mt-2">Nenhuma escola disponível para o seu usuário.</div>';
-  view.innerHTML = `<a href="#/" class="small">← Visitas</a><h5 class="mt-2 mb-3">Nova visita</h5>
-    <div class="mb-3"><label class="form-label fw-semibold">Escola</label>
-      <select id="n-esc" class="form-select">${escolas.map(s => `<option>${esc(s.nome)}</option>`).join('')}</select></div>
-    <div class="mb-3"><label class="form-label fw-semibold">Data da visita</label>
-      <input id="n-data" type="date" class="form-control" value="${new Date().toLocaleDateString('sv-SE')}"></div>
-    <button id="n-go" class="btn btn-primary w-100">Criar visita</button>
-    <div id="n-msg" class="text-danger small mt-2"></div>`;
-  $('#n-go').onclick = async () => {
+  if (!escolas.length) return view.innerHTML = '<div class="alert alert-warning">Nenhuma escola cadastrada.</div>';
+  view.innerHTML = `<div class="mx-auto" style="max-width:480px">
+    <h5 class="mb-3">Dados da escola</h5>
+    <label class="form-label fw-semibold" for="i-esc">Escola</label>
+    <select id="i-esc" class="form-select mb-3"><option value="">Selecione a escola…</option>${escolas.map(s => `<option>${esc(s.nome)}</option>`).join('')}</select>
+    <button id="i-go" class="btn btn-primary w-100">Abrir</button>
+    <div id="i-msg" class="text-danger small mt-2"></div></div>`;
+  $('#i-go').onclick = async ev => {
+    const escola = $('#i-esc').value;
+    if (!escola) return $('#i-msg').textContent = 'Selecione a escola.';
+    const btn = ev.currentTarget;
+    btn.disabled = true;
+    $('#i-msg').textContent = '';
+    // cada escola tem um único registro: abre o que já existe ou cria na primeira vez
+    const { data: ex, error: e1 } = await sb.from('vt3_visitas').select('id').eq('escola', escola).order('created_at').limit(1);
+    if (e1) { btn.disabled = false; return $('#i-msg').textContent = e1.message; }
+    if (ex.length) { location.hash = '#/v/' + ex[0].id; return; }
     const { data: v, error } = await sb.from('vt3_visitas')
-      .insert({ escola: $('#n-esc').value, data_visita: $('#n-data').value }).select('id').single();
-    if (error) return $('#n-msg').textContent = error.message;
-    const r1 = await sb.from('vt3_escutas').insert(GRUPOS.map(grupo => ({ visita_id: v.id, grupo })));
-    if (r1.error) toast('Visita criada, mas houve erro ao montar os formulários', false);
+      .insert({ escola, data_visita: new Date().toLocaleDateString('sv-SE') }).select('id').single();
+    if (error) { btn.disabled = false; return $('#i-msg').textContent = error.message; }
+    const r = await sb.from('vt3_escutas').insert(GRUPOS.map(grupo => ({ visita_id: v.id, grupo })));
+    if (r.error) toast('Houve erro ao montar os formulários da escuta', false);
     location.hash = '#/v/' + v.id;
   };
 }
@@ -244,11 +239,11 @@ async function visitaView(id, opts = {}) {
     sb.from('vt3_escutas').select('*').eq('visita_id', id),
     sb.from('vt3_acoes').select('*').eq('visita_id', id).order('numero')
   ]);
-  if (v.error) return view.innerHTML = `<a href="#/" class="small">← Visitas</a><div class="alert alert-danger mt-2">${esc(v.error.message)}</div>`;
+  if (v.error) return view.innerHTML = `<a href="#/" class="small">← Trocar escola</a><div class="alert alert-danger mt-2">${esc(v.error.message)}</div>`;
   const vis = v.data, T = 'vt3_visitas';
   const escutas = GRUPOS.map(g => (e.data || []).find(x => x.grupo === g)).filter(Boolean);
   const acoes = a.data || [];
-  view.innerHTML = `<a href="#/" class="small">← Visitas</a>
+  view.innerHTML = `<a href="#/" class="small">← Trocar escola</a>
     <h5 class="mt-2">${esc(vis.escola)} <small class="text-muted">· ${dataBR(vis.data_visita)}</small></h5>
     <ul class="nav nav-pills mb-3">
       <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#p1">Identificação</button></li>
@@ -313,7 +308,6 @@ async function visitaView(id, opts = {}) {
 // ---------- Rotas ----------
 async function route() {
   const h = location.hash.slice(1) || '/';
-  if (h === '/nova') return novaView();
   if (h.startsWith('/v/')) return visitaView(h.slice(3));
   return listaView();
 }
