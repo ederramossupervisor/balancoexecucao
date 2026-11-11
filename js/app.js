@@ -171,21 +171,6 @@ document.addEventListener('click', async e => {
   location.hash = '#/';
 });
 
-// ---------- Login ----------
-function loginView() {
-  view.innerHTML = `<div class="mx-auto" style="max-width:380px">
-    <h5 class="mb-3">Entrar</h5>
-    <input id="em" type="email" class="form-control mb-2" placeholder="E-mail" autocomplete="username">
-    <input id="pw" type="password" class="form-control mb-2" placeholder="Senha" autocomplete="current-password">
-    <button id="go" class="btn btn-primary w-100">Entrar</button>
-    <div id="msg" class="text-danger small mt-2"></div></div>`;
-  $('#go').onclick = async () => {
-    const { error } = await sb.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value });
-    if (error) $('#msg').textContent = 'E-mail ou senha inválidos.';
-    else route();
-  };
-}
-
 // ---------- Lista de visitas ----------
 async function listaView() {
   view.innerHTML = '<div class="text-muted">Carregando…</div>';
@@ -327,15 +312,10 @@ async function visitaView(id, opts = {}) {
 
 // ---------- Rotas ----------
 async function route() {
-  const { data: { session } } = await sb.auth.getSession();
-  $('#sair').classList.toggle('d-none', !session);
-  if (!session) return loginView();
   const h = location.hash.slice(1) || '/';
   if (h === '/nova') return novaView();
   if (h.startsWith('/v/')) return visitaView(h.slice(3));
   return listaView();
 }
 window.addEventListener('hashchange', route);
-sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') route(); });
-$('#sair').onclick = () => sb.auth.signOut();
 route();
