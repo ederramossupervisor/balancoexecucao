@@ -60,9 +60,9 @@
 
     kv('Identificação', [
       ['Escola', vis.escola],
-      ['Data da visita', fmt(vis.data_visita)],
-      ['Participantes da escola', vis.participantes_escola || '-'],
-      ['Supervisor(a)/SRE', vis.supervisora_nome || vis.supervisor || '-'],
+      ['Data', fmt(vis.data_visita)],
+      ['Participantes', vis.participantes_escola || '-'],
+      ['Responsável pela inserção dos dados', vis.supervisora_nome || vis.supervisor || '-'],
       ['Escuta registrada com', ouvidos.join(', ') || '-'],
       ['Sem registro de escuta', semRegistro.join(', ') || '-']
     ]);
