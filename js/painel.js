@@ -49,7 +49,7 @@
 
     view.innerHTML = `
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="m-0">Painel consolidado</h5><a href="#/" class="small">← Visitas</a></div>
+        <h5 class="m-0">Painel consolidado</h5><a href="#/" class="small">← Início</a></div>
       <div class="row g-2 mb-3">
         ${card(`${comVisita.size}/${escolas.length}`, 'escolas com VT 3')}
         ${card(`${finalizadas}/${visitas.length}`, 'visitas finalizadas')}
