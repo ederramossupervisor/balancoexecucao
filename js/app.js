@@ -1,6 +1,6 @@
 const sb = supabase.createClient(
-  'https://kcdlyfejflyyaplterjt.supabase.co',
-  'sb_publishable_KMiNhwsv2_7zDu7xLuAZag_XIeUFYlm'
+  'https://dxsshtmvdlhumbrxpkwr.supabase.co',
+  'sb_publishable_fvjms00S_W7on-8-qCUMUg_g5a9gBpu'
 );
 const $ = s => document.querySelector(s);
 const view = $('#view');
