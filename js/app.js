@@ -135,23 +135,6 @@ document.addEventListener('change', async e => {
   toast(error ? 'Erro ao salvar' : 'Salvo', !error);
 });
 
-// Excluir ação e renumerar as restantes (1, 2, 3...)
-document.addEventListener('click', async e => {
-  const id = e.target.dataset.delAcao;
-  if (!id) return;
-  if (!confirm('Excluir esta ação? Não é possível desfazer.')) return;
-  e.target.disabled = true;
-  const vid = (location.hash.match(/^#\/v\/(.+)$/) || [])[1];
-  const { data: del, error } = await sb.from('vt3_acoes').delete().eq('id', id).select('id');
-  if (error || !del || !del.length) { e.target.disabled = false; return toast('Não foi possível excluir', false); }
-  const { data: resto } = await sb.from('vt3_acoes').select('id,numero').eq('visita_id', vid).order('numero');
-  for (let i = 0; i < (resto || []).length; i++) {
-    if (resto[i].numero !== i + 1) await sb.from('vt3_acoes').update({ numero: i + 1 }).eq('id', resto[i].id);
-  }
-  toast('Ação excluída');
-  visitaView(vid, { aba: 'p3' });
-});
-
 // Excluir visita (finalizada ou não), junto com a escuta e as ações dela
 document.addEventListener('click', async e => {
   const d = e.target.dataset, id = d.delVisita;
@@ -244,7 +227,6 @@ const acaoHtml = (x, i) => `<div class="accordion-item">
   <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#a${i}"><span class="me-2">Ação ${x.numero}${x.acao_mapa ? ' · ' + esc(x.acao_mapa.slice(0, 40)) : ''}</span>${x.situacao_execucao ? `<span class="badge text-bg-${COR_SIT[x.situacao_execucao] || 'secondary'}">${esc(x.situacao_execucao)}</span>` : ''}</button></h2>
   <div id="a${i}" class="accordion-collapse collapse"><div class="accordion-body">
     ${CAMPOS_ACAO.map(([c, l, k, o]) => fld('vt3_acoes', x.id, c, l, x[c], k, o)).join('')}
-    <button class="btn btn-outline-danger btn-sm" data-del-acao="${x.id}">Excluir ação</button>
   </div></div></div>`;
 
 async function visitaView(id, opts = {}) {
