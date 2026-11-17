@@ -178,12 +178,27 @@ async function listaView() {
   const { data: escolas, error } = await sb.from('escolas').select('nome').order('nome');
   if (error) return view.innerHTML = `<div class="alert alert-danger">${esc(error.message)}</div>`;
   if (!escolas.length) return view.innerHTML = '<div class="alert alert-warning">Nenhuma escola cadastrada.</div>';
-  view.innerHTML = `<div class="mx-auto" style="max-width:480px">
-    <h5 class="mb-3">Dados da escola</h5>
-    <label class="form-label fw-semibold" for="i-esc">Escola</label>
-    <select id="i-esc" class="form-select mb-3"><option value="">Selecione a escola…</option>${escolas.map(s => `<option>${esc(s.nome)}</option>`).join('')}</select>
-    <button id="i-go" class="btn btn-primary w-100">Abrir</button>
-    <div id="i-msg" class="text-danger small mt-2"></div></div>`;
+  view.innerHTML = `<div class="mx-auto" style="max-width:520px">
+    <div class="text-center mb-4">
+      <h4 class="mb-1">Balanço da Execução</h4>
+      <p class="text-muted mb-0">Preencha aqui as informações da sua escola.</p>
+    </div>
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <div class="fw-bold mb-2">Como funciona</div>
+      <ol class="ps-3 mb-0">
+        <li class="mb-1"><b>Escolha a sua escola</b> na lista abaixo e toque em <i>Começar a preencher</i>.</li>
+        <li class="mb-1">Preencha as 3 abas: <b>Identificação</b> (data e participantes), <b>Escuta</b> (síntese de cada grupo) e <b>Ações</b> (ações do plano e andamento).</li>
+        <li>Ao terminar, na aba Identificação, toque em <b>Marcar como finalizada</b>.</li>
+      </ol>
+      <div class="small text-muted mt-3">Tudo é salvo automaticamente ao sair de cada campo. Pode parar e continuar depois: é só escolher a mesma escola.</div>
+    </div></div>
+    <div class="card shadow-sm"><div class="card-body">
+      <label class="form-label fw-bold fs-5" for="i-esc">Qual é a sua escola?</label>
+      <select id="i-esc" class="form-select form-select-lg mb-3"><option value="">Selecione a escola…</option>${escolas.map(s => `<option>${esc(s.nome)}</option>`).join('')}</select>
+      <button id="i-go" class="btn btn-primary btn-lg w-100" disabled>Começar a preencher</button>
+      <div id="i-msg" class="text-danger small mt-2"></div>
+    </div></div></div>`;
+  $('#i-esc').onchange = () => { $('#i-go').disabled = !$('#i-esc').value; };
   $('#i-go').onclick = async ev => {
     const escola = $('#i-esc').value;
     if (!escola) return $('#i-msg').textContent = 'Selecione a escola.';
@@ -245,16 +260,17 @@ async function visitaView(id, opts = {}) {
   const acoes = a.data || [];
   view.innerHTML = `<a href="#/" class="small">← Trocar escola</a>
     <h5 class="mt-2">${esc(vis.escola)} <small class="text-muted">· ${dataBR(vis.data_visita)}</small></h5>
+    <p class="small text-muted mb-3">Preencha as 3 abas abaixo, na ordem. O que você digita é salvo automaticamente.</p>
     <ul class="nav nav-pills mb-3">
-      <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#p1">Identificação</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#p2">Escuta</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#p3">Ações${acoes.length ? ` (${acoes.length})` : ''}</button></li>
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#p1">1 · Identificação</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#p2">2 · Escuta</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#p3">3 · Ações${acoes.length ? ` (${acoes.length})` : ''}</button></li>
     </ul>
     <div class="tab-content">
       <div class="tab-pane fade show active" id="p1">
-        ${fld(T, id, 'data_visita', 'Data', vis.data_visita, 'date')}
-        ${fld(T, id, 'participantes_escola', 'Participantes', vis.participantes_escola, 'area')}
-        ${fld(T, id, 'supervisora_nome', 'Responsável pela inserção dos dados', vis.supervisora_nome)}
+        ${fld(T, id, 'data_visita', 'Data da visita', vis.data_visita, 'date')}
+        ${fld(T, id, 'participantes_escola', 'Participantes da escola', vis.participantes_escola, 'area')}
+        ${fld(T, id, 'supervisora_nome', 'Supervisora/SRE', vis.supervisora_nome)}
         <button id="fin" class="btn btn-${vis.finalizada ? 'outline-secondary' : 'success'}">${vis.finalizada ? 'Reabrir visita' : 'Marcar como finalizada'}</button>
         <hr class="my-4">
         <button class="btn btn-outline-danger btn-sm" data-del-visita="${id}" data-escola="${esc(vis.escola)}" data-data="${dataBR(vis.data_visita)}" data-n="${acoes.length}" data-fin="${vis.finalizada ? 1 : 0}">Excluir visita</button>
@@ -312,4 +328,6 @@ async function route() {
   return listaView();
 }
 window.addEventListener('hashchange', route);
+// sempre abre na página de Dados da escola, mesmo que a URL venha com #/v/... ou #/painel
+if (location.hash && location.hash !== '#/') history.replaceState(null, '', location.pathname + location.search);
 route();
