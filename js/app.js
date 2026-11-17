@@ -141,7 +141,7 @@ document.addEventListener('click', async e => {
   if (!id) return;
   if (!confirm('Excluir esta ação? Não é possível desfazer.')) return;
   e.target.disabled = true;
-  const vid = location.hash.slice(3);
+  const vid = (location.hash.match(/^#\/v\/(.+)$/) || [])[1];
   const { data: del, error } = await sb.from('vt3_acoes').delete().eq('id', id).select('id');
   if (error || !del || !del.length) { e.target.disabled = false; return toast('Não foi possível excluir', false); }
   const { data: resto } = await sb.from('vt3_acoes').select('id,numero').eq('visita_id', vid).order('numero');
